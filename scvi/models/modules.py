@@ -3,14 +3,27 @@ from typing import Iterable, List
 
 import torch
 from torch import nn as nn
-from torch.distributions import Normal
+from torch.distributions import Normal, Laplace
 from torch.nn import ModuleList
 
 from scvi.models.utils import one_hot
 
 
-def reparameterize_gaussian(mu, var):
-    return Normal(mu, var.sqrt()).rsample()
+
+def model_type_to_function(model_type):
+    if not isinstance(model_type, str):
+        return model_type
+    model_type = model_type.lower()
+    if model_type == "gaussian":
+        def func(mu, var):
+            return Normal(mu, var.sqrt()).rsample()
+        return func
+    elif model_type == "laplace":
+        def func(mu, var):
+            return Laplace(mu, var.sqrt).rsample()
+        return func
+    else:
+        raise NotImplementedError("Not supported: " + model_type)
 
 
 class FCLayers(nn.Module):
@@ -141,6 +154,7 @@ class Encoder(nn.Module):
         n_layers: int = 1,
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
+        model_type = "gaussian"
     ):
         super().__init__()
 
@@ -154,6 +168,7 @@ class Encoder(nn.Module):
         )
         self.mean_encoder = nn.Linear(n_hidden, n_output)
         self.var_encoder = nn.Linear(n_hidden, n_output)
+        self.latent_model = model_type_to_function(model_type)
 
     def forward(self, x: torch.Tensor, *cat_list: int):
         r"""The forward computation for a single sample.
@@ -172,7 +187,7 @@ class Encoder(nn.Module):
         q = self.encoder(x, *cat_list)
         q_m = self.mean_encoder(q)
         q_v = torch.exp(self.var_encoder(q)) + 1e-4
-        latent = reparameterize_gaussian(q_m, q_v)
+        latent = self.latent_model(q_m, q_v)
         return q_m, q_v, latent
 
 
@@ -363,6 +378,7 @@ class MultiEncoder(nn.Module):
         n_layers_shared: int = 2,
         n_cat_list: Iterable[int] = None,
         dropout_rate: float = 0.1,
+        model_type: str = "gaussian",
     ):
         super().__init__()
 
@@ -393,13 +409,15 @@ class MultiEncoder(nn.Module):
         self.mean_encoder = nn.Linear(n_hidden, n_output)
         self.var_encoder = nn.Linear(n_hidden, n_output)
 
+        self.latent_model = model_type_to_function(model_type)
+
     def forward(self, x: torch.Tensor, head_id: int, *cat_list: int):
         q = self.encoders[head_id](x, *cat_list)
         q = self.encoder_shared(q, *cat_list)
 
         q_m = self.mean_encoder(q)
         q_v = torch.exp(self.var_encoder(q))
-        latent = reparameterize_gaussian(q_m, q_v)
+        latent = self.latent_model(q_m, q_v)
 
         return q_m, q_v, latent
 

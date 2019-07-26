@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal, kl_divergence as kl
+from torch.distributions import Normal, kl_divergence as kl, Laplace
 
 from scvi.models.log_likelihood import log_zinb_positive, log_nb_positive
 from scvi.models.modules import Encoder, DecoderSCVI, LinearDecoderSCVI
@@ -56,6 +56,8 @@ class VAE(nn.Module):
         dispersion: str = "gene",
         log_variational: bool = True,
         reconstruction_loss: str = "zinb",
+        z_latent_model: str = "gaussian",
+        l_latent_model: str = "gaussian"
     ):
         super().__init__()
         self.dispersion = dispersion
@@ -75,6 +77,7 @@ class VAE(nn.Module):
         else:  # gene-cell
             pass
 
+
         # z encoder goes from the n_input-dimensional data to an n_latent-d
         # latent space representation
         self.z_encoder = Encoder(
@@ -83,10 +86,12 @@ class VAE(nn.Module):
             n_layers=n_layers,
             n_hidden=n_hidden,
             dropout_rate=dropout_rate,
+            model_type=z_latent_model
         )
         # l encoder goes from n_input-dimensional data to 1-d library size
         self.l_encoder = Encoder(
-            n_input, 1, n_layers=1, n_hidden=n_hidden, dropout_rate=dropout_rate
+            n_input, 1, n_layers=1, n_hidden=n_hidden, dropout_rate=dropout_rate,
+            model_type=l_latent_model
         )
         # decoder goes from n_latent-dimensional space to n_input-d data
         self.decoder = DecoderSCVI(

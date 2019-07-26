@@ -48,6 +48,7 @@ class JVAE(nn.Module):
         n_labels: int = 0,
         dispersion: str = "gene-batch",
         log_variational: bool = True,
+        self.model_type: str = "gaussian"
     ):
         """
 
@@ -99,6 +100,7 @@ class JVAE(nn.Module):
             n_layers_individual=n_layers_encoder_individual,
             n_layers_shared=n_layers_encoder_shared,
             dropout_rate=dropout_rate_encoder,
+            model_type = model_type
         )
 
         self.l_encoders = ModuleList(
