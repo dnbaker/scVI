@@ -48,7 +48,7 @@ class JVAE(nn.Module):
         n_labels: int = 0,
         dispersion: str = "gene-batch",
         log_variational: bool = True,
-        self.model_type: str = "gaussian"
+        model_type: str = "gaussian"
     ):
         """
 
@@ -83,6 +83,7 @@ class JVAE(nn.Module):
         self.indices_mappings = indices_mappings
         self.reconstruction_losses = reconstruction_losses
         self.model_library_bools = model_library_bools
+        self.model_type = model_type
 
         self.n_latent = n_latent
 
